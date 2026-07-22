@@ -1,0 +1,2 @@
+#!/bin/sh
+/opt/oxdna/venv/bin/python /opt/oxdna/source/utils/generate-sa.py "$@"
