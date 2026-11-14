@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /opt/oxdna/venv/bin/python /opt/oxdna/source/utils/decompress_zstd.py "$@"

@@ -1,284 +1,199 @@
-# oxdna
+# oxDNA
 
-`oxdna` packages oxDNA v3.7.0 for TAFFISH as a portable CPU-first simulation
-and analysis runtime.
+`oxdna` packages the official oxDNA CPU/MPI simulation framework, oxpy and OAT for TAFFISH.
 
-Package identity:
-
-- name: `oxdna`
-- command: `taf-oxdna`
-- kind: `tool`
-- version: `3.7.0-r1`
-- container: `ghcr.io/taffish/oxdna:3.7.0-r1`
-- TAFFISH app license: Apache-2.0
-- upstream: <https://github.com/lorenzo-rovigatti/oxDNA>
-- upstream release: `v3.7.0`
-
-## What This App Packages
-
-The image is built from the checksum-verified upstream `v3.7.0` source archive.
-It contains the standalone CPU executables, an MPI build, the `oxpy` Python
-bindings, and the oxDNA Analysis Tools (OAT) 2.5.0 from the same release.
-
-The build disables `-march=native`, so the binaries are portable within each
-declared architecture. It embeds the upstream release tag and commit in the
-runtime version banner because GitHub source archives do not contain `.git`
-metadata.
+- Name / command / kind: `oxdna` / `taf-oxdna` / `tool`
+- TAFFISH version: `3.8.0-r1`; image: `ghcr.io/taffish/oxdna:3.8.0-r1`
+- Native platforms: `linux/amd64`, `linux/arm64`
+- Packaging license: Apache-2.0; upstream software retains its separate GPL terms.
+- Upstream: [oxDNA](https://github.com/lorenzo-rovigatti/oxDNA), [manual](https://lorenzo-rovigatti.github.io/oxDNA/).
 
 ## Scope
 
-This app supports:
+Portable CPU double-precision simulations (MD, MC/VMMC, minimization), `DNAnalysis`,
+`confGenerator`, local MPI parallel tempering, oxpy 3.8.0 and OAT 2.6.5 are included.
+The official 3.8.0 release adds preliminary oxDNA3 and protein ANM models, Zstandard
+trajectory support and updated PDB/mmCIF conversion. Model suitability and convergence
+remain the researcher's responsibility; a packaging smoke test is not scientific validation.
 
-- CPU molecular dynamics, Monte Carlo, VMMC, minimization, built-in DNA/RNA,
-  Lennard-Jones, patchy-particle, and other upstream core interactions
-- `DNAnalysis` trajectory/configuration analysis and `confGenerator` initial
-  configuration generation
-- the `oxpy` Python API, including simulations and trajectory analysis
-- OAT 2.5.0 command-line and Python interfaces, including mean structures,
-  deviations, centroids, clustering, PCA, contact maps, alignment, trajectory
-  subsets, PDB conversion, and oxView-compatible overlays
-- `oxDNA_mpi` with Open MPI for upstream parallel-tempering workflows
-- classic/new topology conversion and sequence-based initial generation
-- native `linux/amd64` and `linux/arm64`
+JSON external-force/observable support, Zstandard and legacy classes are compiled in. Native CPU instruction tuning
+and LTO are disabled for portability. CUDA, GPU-only workflows, multi-node host MPI,
+FFmpeg animation export, runtime compilation and precompiled contrib plugins are excluded.
+The upstream `contrib` sources remain available, including optional ANNaMo workflows;
+these are not additional prebuilt command-line services in this package.
 
-This app does not include:
-
-- the optional NVIDIA CUDA build or CUDA runtime; use the CPU or MPI path in
-  this image
-- FFmpeg for OAT 3D animation export; headless static Matplotlib plots work
-- a compiler toolchain for building custom `contrib` plugins at runtime
-- oxView or other browser-based visualization services
-
-## Container Contents
-
-| Command | Purpose |
-| --- | --- |
-| `oxDNA` | Default standalone CPU simulator |
-| `DNAnalysis` | Analyze configurations and trajectories |
-| `confGenerator` | Generate simple initial configurations |
-| `oxDNA_mpi` | MPI-enabled upstream executable |
-| `python`, `oxdna-python` | Python 3.11 runtime with `oxpy` and OAT |
-| `oat` | oxDNA Analysis Tools command dispatcher |
-| `oxdna-generate-sa` | Path-preserving launcher for upstream `utils/generate-sa.py` |
-| `oxdna-convert-topology` | Launcher for upstream `utils/convert.py` |
-
-Core upstream source, documentation, standard examples, contrib source, and
-test fixtures are preserved at `/opt/oxdna/source`. Large OAT paper-example
-datasets and generated build artifacts are omitted because they are not
-runtime dependencies. Build provenance and installed Python versions are under
-`/opt/oxdna/share/doc/oxdna`.
-
-## Usage
-
-Run a simulation through the packaged `oxDNA` command. The explicit command
-name is recommended because the input filename is positional:
+## Commands and usage
 
 ```sh
 taf-oxdna oxDNA input
-```
-
-The input file may be followed by upstream `key=value` overrides:
-
-```sh
 taf-oxdna oxDNA input steps=1000000 seed=12345
-```
-
-Inspect the upstream version:
-
-```sh
-taf-oxdna oxDNA -v
-```
-
-Upstream `-v` prints the version and exits nonzero by upstream design. The
-TAFFISH wrapper version is available through `taf-oxdna --version`.
-
-Analyze an existing trajectory:
-
-```sh
 taf-oxdna DNAnalysis analysis_input
+taf-oxdna confGenerator generator_input 30
+taf-oxdna python analysis.py
+taf-oxdna oat mean -p 4 -o mean.dat -d deviations.json trajectory.dat
+taf-oxdna oat centroid -o centroid.dat mean.dat trajectory.dat
+taf-oxdna oat distance -c -i trajectory.dat 1 3 5 67
+taf-oxdna oat clustering cluster_data.json -e 0.5 -m 2
+taf-oxdna oat PDB_oxDNA structure.pdb -o structure
+taf-oxdna oat oxDNA_PDB structure.top structure.dat 53 --format mmcif -o model.cif
+taf-oxdna oat mean -h
 ```
 
-Generate an initial configuration in a cubic box of side 30:
+The default command is `oxDNA`. In command mode, a positional input requires explicit
+`oxDNA`; otherwise the first non-option word is interpreted as an executable.
+`taf-oxdna --help` shows usage help; `--version` shows wrapper identity.
+`taf-oxdna oxDNA -v` (or `taf-oxdna -- -v`) prints upstream identity and intentionally
+exits **255**. oxDNA does not implement `--help`; consult the input manual instead.
+No-argument `oat` lists its subcommands and exits 1.
+
+Run in a writable project directory. The wrapper mounts the current working directory;
+output paths and relative paths in input files are resolved there. Preserve a literal
+quoted argument for embedded spaces, for example:
 
 ```sh
-taf-oxdna confGenerator generator_input 30
+taf-oxdna oxDNA "'input with spaces'"
+taf-oxdna python -c '"import oxpy; print(oxpy.__version__)"'
 ```
 
-Generate files from a sequence list and convert topology formats:
+Inputs include topology/configuration pairs, simulation parameter and optional force files,
+trajectories, PDB/mmCIF structures and analysis-specific indexes. Outputs include energy,
+trajectory, final/checkpoint configuration, logs, JSON overlays, converted structures and
+static PNG figures. Some OAT readers write `.pyidx` sidecars beside trajectories; use a
+writable copy when analyzing read-only shared files. Retain originals before rerunning into
+an existing output directory; upstream tools may overwrite named outputs.
+
+## Generation and compression
 
 ```sh
 taf-oxdna oxdna-generate-sa 30 sequences.txt
 taf-oxdna oxdna-convert-topology generated.top generated.dat
+taf-oxdna oxDNA input trajectory_compression=true trajectory_file=traj.zst
+taf-oxdna oxdna-decompress-zstd traj.zst trajectory.dat
+taf-oxdna encode_trj trajectory.dat trajectory.vtj 15 6
+taf-oxdna decode_trj trajectory.vtj restored.dat
 ```
 
-## oxpy and OAT
+The first three `oxdna-*` helpers only select the packaged interpreter and upstream script;
+they do not rewrite simulation data. OAT can read oxDNA's compressed trajectories directly.
+VTJ1 `encode_trj`/`decode_trj` use upstream fixed-point quantization: the last argument above
+keeps six decimal places, **not bit-identical text or arbitrary precision**. Keep originals
+where this rounding is unacceptable. See the bundled `utils/PostSimulationCompression/README.md`.
 
-Run a Python program against the complete `oxpy` API:
+## Backends and local MPI
+
+All ordinary commands use the same interface with `TAFFISH_CONTAINER_BACKEND=docker`,
+`podman` or `apptainer`. The local MPI launcher runs every rank inside the image:
 
 ```sh
-taf-oxdna python analysis.py
+TAFFISH_CONTAINER_BACKEND=docker taf-oxdna mpirun --allow-run-as-root --oversubscribe -np 4 oxDNA_mpi inputPT
+TAFFISH_CONTAINER_BACKEND=podman taf-oxdna mpirun --allow-run-as-root --oversubscribe -np 4 oxDNA_mpi inputPT
+TAFFISH_CONTAINER_BACKEND=apptainer taf-oxdna mpirun --oversubscribe -np 4 oxDNA_mpi inputPT
 ```
 
-A minimal import check is:
+Use inputs with the matching replica/temperature count. The root flag permits container
+root only and can be omitted for ordinary users. Larger Docker/Podman jobs may need
+`TAFFISH_DOCKER_RUN_ARGS="--shm-size=1g"` or `TAFFISH_PODMAN_RUN_ARGS="--shm-size=1g"`.
+Apptainer uses host IPC/shared-memory limits; ask the site administrator if these are too
+small. No privileged mode, host MPI ABI integration or cluster scheduler is required or
+promised. CPU, memory and disk usage grow with system size, replicas and saved frames.
+
+## Resources and shared use
+
+There is no external model/database download or runtime network requirement for the
+supported scope. Force-field constants are built into the official code; PDB nucleotide
+templates and example parameter tables are fixed, bundled upstream resources. Both
+architectures install them readably for every container user. No per-user preparation,
+system-wide downloader, resource discovery or automatic installation is needed.
+
+Custom topology, configuration, force, sequence-dependent parameter and ANM network files
+are **user/project inputs**, not a downloadable catalog. An administrator may place such
+files in a versioned site directory (directories 0755, files 0644) once; users mount it
+read-only, keep output in their own working directory, and explicitly set input file paths:
 
 ```sh
-taf-oxdna python -c '"import oxpy; print(oxpy.__version__)"'
+TAFFISH_DOCKER_RUN_ARGS="-v /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
+TAFFISH_CONTAINER_BACKEND=podman TAFFISH_PODMAN_RUN_ARGS="-v /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
+TAFFISH_CONTAINER_BACKEND=apptainer TAFFISH_APPTAINER_RUN_ARGS="--bind /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
 ```
 
-OAT uses `oat <analysis> ...`; the analysis name is an upstream subcommand, so
-keep the explicit `oat` command in TAFFISH invocations:
+For example, set `topology=/reference/system.top` and `conf_file=/reference/initial.dat`
+in `input`; pass any project parameter path through the upstream model's input keys.
+No helper changes ownership, downloads data, deletes libraries, or traverses recovery
+directories. User-supplied data retain their own terms; bundled templates retain upstream
+terms. Symlinks must resolve within a mounted readable location; unavailable inputs fail.
 
-```sh
-taf-oxdna oat mean -p 4 -o mean.dat -d deviations.json trajectory.dat
-taf-oxdna oat centroid -o centroid.dat mean.dat trajectory.dat
-taf-oxdna oat distance -c -i trajectory.dat 1 3 5 67 34 56
-taf-oxdna oat clustering cluster_data.json -e 0.5 -m 2
-```
+## Visualization boundary
 
-Convert between all-atom PDB and coarse-grained oxDNA representations:
+OAT's Matplotlib **Agg** plots are saved as local files. View them outside the container.
+[oxView](https://sulcgroup.github.io/oxdna-viewer/) is the official independent browser
+viewer/editor; it consumes topology/configuration, trajectory and overlay files.
+OAT's notebook helper embeds the external oxView page in an iframe; it is not a local
+server and needs a separately installed notebook environment and network access to that
+viewer. Jupyter, oxView, tacoxDNA and Adenita are not bundled services. No GUI port,
+authentication or service lifecycle is added to this CLI package.
 
-```sh
-taf-oxdna oat PDB_oxDNA structure.pdb -o structure
-taf-oxdna oat oxDNA_PDB structure.top structure.dat 53 -o structure_backmapped
-```
+## Build provenance and reproducibility
 
-List available OAT analyses or inspect one analysis:
+Official [v3.8.0 release](https://github.com/lorenzo-rovigatti/oxDNA/releases/tag/v3.8.0),
+commit `f30769e0aad31ce4f40a20ed41f2ac1b8ae13300`, archive SHA256
+`f7d7052a1e6ac25f00e6e48431cd28116b61bd2b6d723ee17353930d163db98e`.
+Scientific algorithms are unchanged. Two build compatibility fixes are disclosed:
+`-include cstring` supplies the standard `strncmp` declaration missing from 3.8.0's
+legacy DHS class; `docker/fix-mpi-filenames.py` replaces three obsolete `strcat`
+calls with `std::string` appends in the MPI backend. The latter only appends replica
+numbers to histogram filenames and refuses an unexpected upstream file hash.
+The old release-metadata and PDB-path
+patches are removed: upstream now supports archive version detection and package-relative
+templates. An archive build honestly reports revision `none`; the full source identity is
+stored in `/opt/oxdna/share/doc/oxdna/source.txt`.
 
-```sh
-taf-oxdna oat
-taf-oxdna oat mean -h
-```
+The digest-pinned base contains Python 3.11.18. `docker/requirements.lock` pins and hashes
+all Python wheel inputs (NumPy 1.26.4, SciPy 1.13.1, scikit-learn 1.8.0, Matplotlib 3.11.2,
+Pillow 13.0.0 and Zstandard 0.25.0 included). Native build dependencies and runtime package
+manifests are recorded in the image. Live Debian repositories can change or remove package
+revisions; GitHub/PyPI availability is also external. Hashes detect changed content; they do
+not guarantee future downloads or bit-for-bit rebuilds. Do not blindly replace hashes after
+a failed fetch. Dockerfile build context is the app root, `-f docker/Dockerfile .`.
 
-The no-argument `oat` listing exits with status 1 by upstream design.
+Installed source, documentation, test examples and licenses are in `/opt/oxdna/source`;
+large `analysis/paper_examples` and generated build files are omitted. Executables live in
+`/opt/oxdna/bin`, Python packages in `/opt/oxdna/venv`; `oxdna-python` selects that interpreter.
 
-## MPI
+## Troubleshooting
 
-The image includes Open MPI and `oxDNA_mpi`. For example:
+- A filename is treated as a command: insert explicit `oxDNA`.
+- Spaces split an argument: retain literal shell quoting as shown above.
+- `-v` returns 255: this is upstream version behavior, not a failed installation.
+- A read-only trajectory cannot be indexed: copy it to your writable project folder.
+- MPI rank/IPC errors: check replica count, available CPUs and shared memory; this is not a multi-node MPI image.
+- CUDA backend requested: use an independently built upstream CUDA image instead.
+- A model/file is absent: correct the explicit mounted path; there is no implicit download fallback.
 
-```sh
-TAFFISH_DOCKER_RUN_ARGS="--shm-size=1g" \
-  taf-oxdna mpirun --allow-run-as-root --oversubscribe \
-  -np 4 oxDNA_mpi inputPT
-```
+## Validation
 
-Use `TAFFISH_PODMAN_RUN_ARGS` for the corresponding Podman setting. MPI rank
-count, replica inputs, shared-memory size, and scheduler integration remain
-workflow-specific. The ordinary `oxDNA` command does not require MPI.
+The 3.8.0-r1 candidate was tested on native amd64 (Docker, Podman and Apptainer)
+and native arm64 (Docker and Podman). The checks include every exact manifest probe,
+non-root/read-only execution, real frozen wrappers, tiny CPU/MPI/oxpy workflows,
+MPI histogram output/reload, OAT plots, PDB/mmCIF, DNA3/ANM and compressed trajectories.
+Shared read-only inputs, valid/broken input symlinks, failure exit codes and diagnostic
+retention were checked. Apptainer used a read-only SIF converted from the same amd64 image.
+All 1,482 retained original source files match their pinned identities, except the three
+disclosed MPI filename append lines, whose resulting hash is checked separately.
 
-## Command Mode
+Uncompressed local image sizes: amd64 approximately 481.7 MB; arm64 496.5 MB.
+The old 3.7.0 image was not available locally for a like-for-like size comparison.
+Build tools/download caches stay outside the final multi-stage image; runtime dependencies,
+readable templates, licenses, source and useful examples are retained.
 
-TAFFISH automatic command mode treats the first non-option argument as an
-executable in the image. These are therefore valid:
+These checks do not establish production scaling, convergence, force-field accuracy or
+biological validity. No publication, remote CI success or Index acceptance is implied.
 
-```sh
-taf-oxdna DNAnalysis analysis_input
-taf-oxdna oat pca trajectory.dat mean.dat pca.json
-taf-oxdna python custom_analysis.py
-```
+## License and citation
 
-For the same reason, a positional simulation input must use
-`taf-oxdna oxDNA input`; `taf-oxdna input` would try to execute a command named
-`input` inside the container.
+TAFFISH packaging: [Apache-2.0](LICENSE). Upstream oxDNA/oxpy declare GPL-3.0-or-later;
+OAT uses GPLv3. Upstream license files, bundled third-party notices and Debian copyright
+files remain in the image; the packaging license does not relicense those components.
 
-Use `taf-oxdna -- -v` to pass an option-leading argument to the default
-`oxDNA` command. Do not use `taf-oxdna mean ...`; `mean` is an OAT analysis,
-not a standalone executable.
-
-## Inputs and Outputs
-
-Core programs consume upstream text input files plus topology and
-configuration data. Simulations commonly write energy, trajectory,
-configuration, checkpoint, and log files named by the input configuration.
-`DNAnalysis` writes the configured observable outputs. `confGenerator` and
-the sequence utility write topology/configuration pairs.
-
-OAT consumes oxDNA topology/configuration/trajectory files, PDB files, index
-lists, force files, and analysis-specific tables. Outputs depend on the OAT
-analysis and may include `.dat`, `.json`, `.txt`, `.png`, `.pdb`, and topology
-files. All relative paths resolve inside the mounted working directory.
-
-## Runtime Versions
-
-| Component | Version |
-| --- | --- |
-| oxDNA / oxpy | 3.7.0 |
-| OAT (`oxDNA-analysis-tools`) | 2.5.0 |
-| Python | 3.11.13 |
-| NumPy | 1.26.4 |
-| SciPy | 1.13.1 |
-| scikit-learn | 1.5.2 |
-| Matplotlib | 3.9.2 |
-
-The image contains no external model or reference database and does not need
-network access for normal simulations or analysis.
-
-## Platform and Resource Notes
-
-CPU and memory needs scale with nucleotide/particle count, simulation steps,
-neighbor-list choice, saved trajectory frequency, and OAT analysis. Long runs
-should write into a project directory with enough disk space. OAT uses the
-non-interactive `Agg` Matplotlib backend so static plots work in headless
-containers.
-
-The CPU binaries use double precision and JSON-enabled external forces and
-observables. `-march=native` and link-time optimization are disabled to avoid
-host-specific instructions and cross-architecture linker nondeterminism; no
-runtime command or scientific model is removed by these build settings.
-
-## Boundaries
-
-CUDA is a separate upstream build mode tied to NVIDIA's compiler and runtime.
-Bundling it here would materially increase the image and would not provide a
-portable native arm64 contract, so `backend = CUDA` is not supported by this
-image. CUDA-only FFS and GPU interaction paths are therefore outside this
-release.
-
-The upstream `contrib` plugin source is preserved, but optional plugins are not
-precompiled by the upstream default build and this runtime has no compiler.
-Use a dedicated development image when modifying or compiling custom plugins.
-
-OAT's 3D cluster animation route invokes external FFmpeg. This image preserves
-OAT clustering and static plot output but intentionally omits video encoding.
-
-The packaging applies one path-resolution correction to OAT's bundled DNA/RNA
-reference PDB files so `oat oxDNA_PDB` works from any mounted directory. It
-does not alter the scientific conversion algorithm.
-
-The two `oxdna-*` utilities use thin launchers rather than direct symbolic
-links. `generate-sa.py` locates `src/model.h` relative to its own source path,
-while `convert.py` has no executable shebang. The launchers preserve upstream
-paths and arguments without changing either script or its generated files.
-
-## Testing
-
-Independent offline smoke tests cover:
-
-- exact core, `oxpy`, OAT, NumPy, SciPy, scikit-learn, and Matplotlib versions
-- a tiny CPU DNA simulation plus initial-configuration and topology conversion
-- a four-rank MPI parallel-tempering simulation with per-replica outputs
-- an `oxpy` simulation and trajectory-reader path
-- OAT mean, deviations, centroid, distance clustering, and static plotting
-- PDB-to-oxDNA conversion followed by oxDNA-to-PDB backmapping
-
-The image build also checks runtime linkage. Smoke does not replace convergence
-testing, force-field validation, long MPI runs, or project-specific scientific
-review.
-
-## Documentation, License, and Citation
-
-- manual: <https://lorenzo-rovigatti.github.io/oxDNA/>
-- installation: <https://lorenzo-rovigatti.github.io/oxDNA/install.html>
-- OAT: <https://lorenzo-rovigatti.github.io/oxDNA/oat/index.html>
-- release: <https://github.com/lorenzo-rovigatti/oxDNA/releases/tag/v3.7.0>
-
-The TAFFISH app packaging is Apache-2.0. Upstream oxDNA, oxpy, and OAT retain
-their GPL-3.0 terms; bundled third-party components retain their own notices.
-
-For the integrated framework, cite:
-
-> Poppleton E, Matthies M, Mandal D, Romano F, Sulc P, Rovigatti L. oxDNA:
-> coarse-grained simulations of nucleic acids made simple. Journal of Open
-> Source Software. 2023;8(81):4693. <https://doi.org/10.21105/joss.04693>
-
-OAT/oxView workflows may also require the citations listed in the upstream OAT
-manual, including <https://doi.org/10.1093/nar/gkaa417>.
+Poppleton E et al. *oxDNA: coarse-grained simulations of nucleic acids made simple*.
+JOSS 8(81):4693 (2023), [doi:10.21105/joss.04693](https://doi.org/10.21105/joss.04693).
+Also cite the force-field and OAT methods actually used, following the upstream manual.
