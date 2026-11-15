@@ -1,9 +1,9 @@
 ARG PYTHON_IMAGE=python:3.11.18-slim-bookworm@sha256:a83ba18aef0f865b1a4a611c2cf460fe446f2795673bbb9fe43be570439e3b39
 FROM ${PYTHON_IMAGE} AS builder
 
-ARG OXDNA_VERSION=3.8.0
-ARG OXDNA_COMMIT=f30769e0aad31ce4f40a20ed41f2ac1b8ae13300
-ARG OXDNA_SHA256=f7d7052a1e6ac25f00e6e48431cd28116b61bd2b6d723ee17353930d163db98e
+ARG OXDNA_VERSION=3.8.1
+ARG OXDNA_COMMIT=130eee4cca4b96ac23f6fa11a9eab44ecdf8fa4a
+ARG OXDNA_SHA256=8f5ea2a55d2413e4b2ed7afb6100e209a9d3c52810417804fefedcb97db6a222
 ENV DEBIAN_FRONTEND=noninteractive VIRTUAL_ENV=/opt/oxdna/venv
 ENV PATH=/opt/oxdna/venv/bin:${PATH}
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
@@ -11,7 +11,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
 # Base/source/Python hashes identify the reviewed inputs, not a permanent mirror.
 # Debian bookworm/security repositories are live: package revisions may change or
 # disappear. PyPI/GitHub files may also become unavailable. Fail closed on hash
-# mismatch; re-audit the source and dependencies before refreshing any pin.
+# mismatch; recover the matching bytes or re-audit before changing any pin.
 COPY docker/requirements.lock /tmp/requirements.lock
 RUN set -eux; \
     apt-get update; \
@@ -24,7 +24,7 @@ RUN set -eux; \
 # Preserve the release directory name: upstream CMake derives its version from
 # it. Archive builds truthfully report git revision "none"; the full commit and
 # verified archive identity are recorded separately.
-# 3.8.0 DHSInteraction.cpp (LEGACY_CODE) omits <cstring> for strncmp.
+# DHSInteraction.cpp (LEGACY_CODE) still omits <cstring> for strncmp.
 # Supply that standard declaration via compiler flags, preserving legacy scope.
 # The MPI backend still uses strcat on three fields now typed std::string.
 # The hash-guarded patch changes only those filename appends, not algorithms.
@@ -88,12 +88,12 @@ COPY --chmod=0755 docker/testdata/oxdna-smoke.sh /opt/oxdna/share/testdata/oxdna
 ENV OXDNA_ROOT=/opt/oxdna OXDNA_SOURCE=/opt/oxdna/source VIRTUAL_ENV=/opt/oxdna/venv
 ENV PATH=/opt/oxdna/bin:/opt/oxdna/venv/bin:${PATH}
 ENV MPLBACKEND=Agg XDG_CACHE_HOME=/tmp/xdg-cache PYTHONDONTWRITEBYTECODE=1
-ENV OXDNA_VERSION=3.8.0 OXDNA_COMMIT=f30769e0aad31ce4f40a20ed41f2ac1b8ae13300 OAT_VERSION=2.6.5
+ENV OXDNA_VERSION=3.8.1 OXDNA_COMMIT=130eee4cca4b96ac23f6fa11a9eab44ecdf8fa4a OAT_VERSION=2.6.5
 ENV TAFFISH_ENV=TAFFISH TAFFISH_NAME=oxdna
 RUN set -eux; \
     ln -s /opt/oxdna/venv/bin/python /usr/local/bin/oxdna-python; \
     dpkg-query -W > /opt/oxdna/share/doc/oxdna/runtime-packages.tsv; \
-    /opt/oxdna/share/testdata/oxdna-smoke.sh identity; \
+    /opt/oxdna/share/testdata/oxdna-smoke.sh build-identity; \
     ldd /opt/oxdna/bin/oxDNA /opt/oxdna/bin/DNAnalysis \
       /opt/oxdna/bin/confGenerator /opt/oxdna/bin/oxDNA_mpi > /tmp/oxdna-ldd.txt; \
     if grep -F 'not found' /tmp/oxdna-ldd.txt; then exit 1; fi; \

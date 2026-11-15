@@ -1,4 +1,4 @@
-"""Fix three obsolete C-string appends in the pinned 3.8.0 MPI backend."""
+"""Fix three obsolete C-string appends only for the audited MPI source bytes."""
 import hashlib
 import pathlib
 import sys

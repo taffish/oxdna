@@ -1,7 +1,7 @@
 [package]
 name = "oxdna"
 kind = "tool"
-version = "3.8.0"
+version = "3.8.1"
 release = 1
 license = "Apache-2.0"
 main = "src/main.taf"
@@ -17,7 +17,7 @@ pipe = true
 command_mode = true
 
 [container]
-image = "ghcr.io/taffish/oxdna:3.8.0-r1"
+image = "ghcr.io/taffish/oxdna:3.8.1-r1"
 dockerfile = "docker/Dockerfile"
 build_platforms = "linux/amd64,linux/arm64"
 
@@ -25,7 +25,7 @@ build_platforms = "linux/amd64,linux/arm64"
 domain = "bio"
 categories = ["molecular-dynamics", "nucleic-acids", "structural-biology", "simulation", "trajectory-analysis"]
 keywords = ["oxDNA", "oxRNA", "coarse-grained simulation", "molecular dynamics", "Monte Carlo", "oxpy", "OAT", "DNA nanotechnology", "RNA nanotechnology", "MPI"]
-description = "oxDNA 3.8.0 portable CPU/MPI simulation runtime with oxpy, OAT 2.6.5, Zstandard trajectories and structure conversion."
+description = "oxDNA 3.8.1 portable CPU/MPI simulation runtime with oxpy, OAT 2.6.5, Zstandard trajectories and structure conversion."
 
 [upstream]
 name = "oxDNA"
@@ -33,10 +33,10 @@ type = "github"
 repo = "lorenzo-rovigatti/oxDNA"
 homepage = "https://lorenzo-rovigatti.github.io/oxDNA/"
 manual = "https://lorenzo-rovigatti.github.io/oxDNA/"
-release_url = "https://github.com/lorenzo-rovigatti/oxDNA/releases/tag/v3.8.0"
-downloads = "https://github.com/lorenzo-rovigatti/oxDNA/archive/refs/tags/v3.8.0.tar.gz"
-version = "3.8.0"
-commit = "f30769e0aad31ce4f40a20ed41f2ac1b8ae13300"
+release_url = "https://github.com/lorenzo-rovigatti/oxDNA/releases/tag/v3.8.1"
+downloads = "https://github.com/lorenzo-rovigatti/oxDNA/archive/refs/tags/v3.8.1.tar.gz"
+version = "3.8.1"
+commit = "130eee4cca4b96ac23f6fa11a9eab44ecdf8fa4a"
 license = "GPL-3.0-or-later"
 description = "Coarse-grained DNA and RNA simulation framework with standalone executables, Python bindings, and oxDNA Analysis Tools."
 citation = "Poppleton E, Matthies M, Mandal D, Romano F, Sulc P, Rovigatti L. oxDNA: coarse-grained simulations of nucleic acids made simple. Journal of Open Source Software. 2023;8(81):4693."
@@ -48,4 +48,4 @@ strip_prefix = "v"
 backend = "docker"
 timeout = 300
 exist = ["oxDNA", "DNAnalysis", "confGenerator", "oxDNA_mpi", "oxdna-python", "oat", "oxdna-generate-sa", "oxdna-convert-topology", "oxdna-decompress-zstd", "encode_trj", "decode_trj", "mpirun"]
-test = ["/opt/oxdna/share/testdata/oxdna-smoke.sh identity", "/opt/oxdna/share/testdata/oxdna-smoke.sh simulation", "/opt/oxdna/share/testdata/oxdna-smoke.sh mpi", "/opt/oxdna/share/testdata/oxdna-smoke.sh oxpy", "/opt/oxdna/share/testdata/oxdna-smoke.sh oat", "/opt/oxdna/share/testdata/oxdna-smoke.sh structure", "/opt/oxdna/share/testdata/oxdna-smoke.sh compression", "/opt/oxdna/share/testdata/oxdna-smoke.sh models"]
+test = ["/opt/oxdna/share/testdata/oxdna-smoke.sh identity", "/opt/oxdna/share/testdata/oxdna-smoke.sh simulation", "/opt/oxdna/share/testdata/oxdna-smoke.sh mpi", "/opt/oxdna/share/testdata/oxdna-smoke.sh oxpy", "/opt/oxdna/share/testdata/oxdna-smoke.sh oat", "/opt/oxdna/share/testdata/oxdna-smoke.sh structure", "/opt/oxdna/share/testdata/oxdna-smoke.sh compression", "/opt/oxdna/share/testdata/oxdna-smoke.sh models", "/opt/oxdna/share/testdata/oxdna-smoke.sh rna-vmmc", "/opt/oxdna/share/testdata/oxdna-smoke.sh sampling"]

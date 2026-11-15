@@ -3,7 +3,7 @@
 `oxdna` packages the official oxDNA CPU/MPI simulation framework, oxpy and OAT for TAFFISH.
 
 - Name / command / kind: `oxdna` / `taf-oxdna` / `tool`
-- TAFFISH version: `3.8.0-r1`; image: `ghcr.io/taffish/oxdna:3.8.0-r1`
+- TAFFISH version: `3.8.1-r1`; image: `ghcr.io/taffish/oxdna:3.8.1-r1`
 - Native platforms: `linux/amd64`, `linux/arm64`
 - Packaging license: Apache-2.0; upstream software retains its separate GPL terms.
 - Upstream: [oxDNA](https://github.com/lorenzo-rovigatti/oxDNA), [manual](https://lorenzo-rovigatti.github.io/oxDNA/).
@@ -11,9 +11,10 @@
 ## Scope
 
 Portable CPU double-precision simulations (MD, MC/VMMC, minimization), `DNAnalysis`,
-`confGenerator`, local MPI parallel tempering, oxpy 3.8.0 and OAT 2.6.5 are included.
-The official 3.8.0 release adds preliminary oxDNA3 and protein ANM models, Zstandard
-trajectory support and updated PDB/mmCIF conversion. Model suitability and convergence
+`confGenerator`, local MPI parallel tempering, oxpy 3.8.1 and OAT 2.6.5 are included.
+Upstream 3.8.1 fixes VMMC simulations using the original RNA model. The preliminary oxDNA3
+and protein ANM models, Zstandard trajectories and PDB/mmCIF conversion remain available.
+Model suitability and convergence
 remain the researcher's responsibility; a packaging smoke test is not scientific validation.
 
 JSON external-force/observable support, Zstandard and legacy classes are compiled in. Native CPU instruction tuning
@@ -23,6 +24,8 @@ The upstream `contrib` sources remain available, including optional ANNaMo workf
 these are not additional prebuilt command-line services in this package.
 
 ## Commands and usage
+
+Install the indexed version with `taf install oxdna 3.8.1-r1` once it is published and indexed.
 
 ```sh
 taf-oxdna oxDNA input
@@ -61,6 +64,20 @@ trajectory, final/checkpoint configuration, logs, JSON overlays, converted struc
 static PNG figures. Some OAT readers write `.pyidx` sidecars beside trajectories; use a
 writable copy when analyzing read-only shared files. Retain originals before rerunning into
 an existing output directory; upstream tools may overwrite named outputs.
+
+### Preparing a metadynamics sampling folder
+
+Run the bundled upstream script from the working directory containing `run-meta_0/`
+and the metadynamics TOML configuration. Supply a new output directory:
+
+```sh
+taf-oxdna python /opt/oxdna/source/examples/METADYNAMICS/prepare_sampling.py sampling --config metad_PID.toml
+```
+
+The default rescales the final bias by `(1 + dT) / dT`; `--raw_bias` preserves the original
+grid instead. Do not reuse an output name with `--force`: the upstream script recursively
+replaces that directory. The packaged `toml` reader is pinned at 0.10.2 (MIT); no user install
+or network access is needed for this step.
 
 ## Generation and compression
 
@@ -111,7 +128,7 @@ files in a versioned site directory (directories 0755, files 0644) once; users m
 read-only, keep output in their own working directory, and explicitly set input file paths:
 
 ```sh
-TAFFISH_DOCKER_RUN_ARGS="-v /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
+TAFFISH_CONTAINER_BACKEND=docker TAFFISH_DOCKER_RUN_ARGS="-v /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
 TAFFISH_CONTAINER_BACKEND=podman TAFFISH_PODMAN_RUN_ARGS="-v /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
 TAFFISH_CONTAINER_BACKEND=apptainer TAFFISH_APPTAINER_RUN_ARGS="--bind /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
 ```
@@ -134,11 +151,11 @@ authentication or service lifecycle is added to this CLI package.
 
 ## Build provenance and reproducibility
 
-Official [v3.8.0 release](https://github.com/lorenzo-rovigatti/oxDNA/releases/tag/v3.8.0),
-commit `f30769e0aad31ce4f40a20ed41f2ac1b8ae13300`, archive SHA256
-`f7d7052a1e6ac25f00e6e48431cd28116b61bd2b6d723ee17353930d163db98e`.
+Official [v3.8.1 release](https://github.com/lorenzo-rovigatti/oxDNA/releases/tag/v3.8.1),
+commit `130eee4cca4b96ac23f6fa11a9eab44ecdf8fa4a`, archive SHA256
+`8f5ea2a55d2413e4b2ed7afb6100e209a9d3c52810417804fefedcb97db6a222`.
 Scientific algorithms are unchanged. Two build compatibility fixes are disclosed:
-`-include cstring` supplies the standard `strncmp` declaration missing from 3.8.0's
+`-include cstring` supplies the standard `strncmp` declaration missing from the
 legacy DHS class; `docker/fix-mpi-filenames.py` replaces three obsolete `strcat`
 calls with `std::string` appends in the MPI backend. The latter only appends replica
 numbers to histogram filenames and refuses an unexpected upstream file hash.
@@ -171,19 +188,16 @@ large `analysis/paper_examples` and generated build files are omitted. Executabl
 
 ## Validation
 
-The 3.8.0-r1 candidate was tested on native amd64 (Docker, Podman and Apptainer)
-and native arm64 (Docker and Podman). The checks include every exact manifest probe,
-non-root/read-only execution, real frozen wrappers, tiny CPU/MPI/oxpy workflows,
-MPI histogram output/reload, OAT plots, PDB/mmCIF, DNA3/ANM and compressed trajectories.
-Shared read-only inputs, valid/broken input symlinks, failure exit codes and diagnostic
-retention were checked. Apptainer used a read-only SIF converted from the same amd64 image.
-All 1,482 retained original source files match their pinned identities, except the three
-disclosed MPI filename append lines, whose resulting hash is checked separately.
+The 3.8.1-r1 images were built natively for linux/amd64 and linux/arm64. The
+generated TAFFISH wrapper was exercised with Docker and Podman on both platforms,
+and with Apptainer on native x86-64 Linux. Each backend ran the small CPU and
+four-rank MPI workflows, the original RNA/VMMC regression, both sampling-bias
+modes, read-only shared inputs and OAT plotting without network access.
+MPI startup is tested at runtime, not required of the Dockerfile builder.
 
-Uncompressed local image sizes: amd64 approximately 481.7 MB; arm64 496.5 MB.
-The old 3.7.0 image was not available locally for a like-for-like size comparison.
-Build tools/download caches stay outside the final multi-stage image; runtime dependencies,
-readable templates, licenses, source and useful examples are retained.
+Uncompressed Docker image sizes: 481.8 MB (amd64) and 495.8 MB (arm64);
+the previous 3.8.0-r1 measurements were 481.7 MB and 496.5 MB respectively.
+These figures are not registry download sizes. The tested amd64 SIF was 166.7 MB.
 
 These checks do not establish production scaling, convergence, force-field accuracy or
 biological validity. No publication, remote CI success or Index acceptance is implied.

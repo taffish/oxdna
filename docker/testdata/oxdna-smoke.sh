@@ -26,17 +26,23 @@ version_output() {
 }
 
 case "$mode" in
-    identity)
+    build-identity|identity)
         for command_name in oxDNA DNAnalysis confGenerator oxDNA_mpi oat python oxdna-generate-sa oxdna-convert-topology mpirun; do
             command -v "$command_name" >/dev/null
         done
-        version_output oxDNA | grep -E '^oxDNA v3\.8\.0 by ' >/dev/null
-        version_output DNAnalysis | grep -E '^Configuration analyser for oxDNA v3\.8\.0' >/dev/null
+        version_output oxDNA | grep -E '^oxDNA v3\.8\.1 by ' >/dev/null
+        version_output DNAnalysis | grep -E '^Configuration analyser for oxDNA v3\.8\.1([[:space:]]|$)' >/dev/null
         status=0
         output="$(confGenerator -v ignored 2>&1)" || status=$?
         test "$status" -eq 255
-        printf '%s\n' "$output" | grep -E '^Configuration generator for oxDNA v3\.8\.0' >/dev/null
-        version_output oxDNA_mpi | grep -E '^oxDNA v3\.8\.0 by ' >/dev/null
+        printf '%s\n' "$output" | grep -E '^Configuration generator for oxDNA v3\.8\.1([[:space:]]|$)' >/dev/null
+        python -c 'import oxpy, toml; assert oxpy.__version__ == "3.8.1"'
+        grep -Fx 'commit=130eee4cca4b96ac23f6fa11a9eab44ecdf8fa4a' \
+            "$root/share/doc/oxdna/source.txt" >/dev/null
+        # Even -v initializes OpenMPI and starts a singleton daemon. BuildKit
+        # need not support that; the offline runtime matrix checks it and MPI.
+        if [[ "$mode" == build-identity ]]; then exit 0; fi
+        version_output oxDNA_mpi | grep -E '^oxDNA v3\.8\.1 by ' >/dev/null
         python - <<'PY'
 import importlib.metadata as md
 import matplotlib
@@ -46,7 +52,7 @@ import oxpy
 import scipy
 import sklearn
 
-assert md.version("oxpy") == "3.8.0"
+assert md.version("oxpy") == "3.8.1"
 assert md.version("oxDNA-analysis-tools") == "2.6.5"
 assert oxDNA_analysis_tools.__version__ == "2.6.5"
 assert numpy.__version__ == "1.26.4"
@@ -59,8 +65,52 @@ assert hasattr(oxpy, "OxpyManager")
 PY
         oat mean -h 2>&1 | grep -F 'Computes the mean structure of a trajectory file' >/dev/null
         oat config 2>&1 | grep -F 'oxDNA_analysis_tools version: 2.6.5' >/dev/null
-        grep -Fx 'commit=f30769e0aad31ce4f40a20ed41f2ac1b8ae13300' \
-            "$root/share/doc/oxdna/source.txt" >/dev/null
+        ;;
+    rna-vmmc)
+        tmp="$(mktemp -d /tmp/taf-oxdna-rna.XXXXXX)"
+        trap 'rm -rf "$tmp"' EXIT
+        cp "$root/source/examples/RNA_DUPLEX_MELT/"{input,sim.top,init.conf,op.txt,wfile.txt} "$tmp/"
+        (
+            cd "$tmp"
+            oxDNA input interaction_type=RNA sim_type=VMMC seed=1701 steps=20 \
+                print_conf_interval=10 print_energy_every=10 log_file=run.log >run.stdout 2>run.stderr
+            grep -F 'END OF THE SIMULATION' run.log >/dev/null
+            test -s energy.dat
+            test -s trajectory.dat
+            grep -q '^t = 20$' trajectory.dat
+        )
+        ;;
+    sampling)
+        tmp="$(mktemp -d /tmp/taf-oxdna-sampling.XXXXXX)"
+        trap 'rm -rf "$tmp"' EXIT
+        (
+            cd "$tmp"
+            mkdir run-meta_0
+            printf 'coordination = false\ndT = 2\n' > config.toml
+            printf 'topology = system.top\nconf_file = last_conf.dat\n' > run-meta_0/input-meta
+            cp "$root/source/test/OXPY/dsdna8.top" run-meta_0/system.top
+            cp "$root/source/test/OXPY/init.dat" run-meta_0/last_conf.dat
+            printf 'potential_grid = 2,-4|0,8\n' > run-meta_0/ext_meta.txt
+            script="$root/source/examples/METADYNAMICS/prepare_sampling.py"
+            python "$script" --config config.toml --seed 73 scaled >scaled.stdout 2>scaled.stderr
+            python "$script" --config config.toml --seed 73 --raw_bias raw >raw.stdout 2>raw.stderr
+            grep -Fx 'potential_grid = 3.0,-6.0|0.0,12.0' scaled/ext_meta.txt >/dev/null
+            cmp run-meta_0/ext_meta.txt raw/ext_meta.txt
+            for dir in raw scaled; do
+                cmp run-meta_0/system.top "$dir/system.top"
+                cmp run-meta_0/last_conf.dat "$dir/init_conf.dat"
+                grep -E '^seed[[:space:]]*=[[:space:]]*73[[:space:]]*$' "$dir/input" >/dev/null
+            done
+            if python "$script" --config config.toml raw >exists.stdout 2>exists.stderr; then exit 1; fi
+            grep -F 'already exists. Use --force' exists.stdout >/dev/null
+            cmp run-meta_0/ext_meta.txt raw/ext_meta.txt
+            printf 'coordination = false\n' > no-dt.toml
+            if python "$script" --config no-dt.toml invalid >missing.stdout 2>missing.stderr; then exit 1; fi
+            grep -F 'does not contain the dT key' missing.stdout >/dev/null
+            test ! -e invalid
+            python "$script" --config no-dt.toml --seed 73 --raw_bias raw-no-dt >no-dt.stdout 2>no-dt.stderr
+            cmp run-meta_0/ext_meta.txt raw-no-dt/ext_meta.txt
+        )
         ;;
     simulation)
         tmp="$(mktemp -d /tmp/taf-oxdna-simulation.XXXXXX)"
@@ -265,7 +315,7 @@ PY
         )
         ;;
     *)
-        echo "usage: $0 identity|simulation|mpi|oxpy|oat|structure|compression|models" >&2
+        echo "usage: $0 build-identity|identity|simulation|mpi|oxpy|oat|structure|compression|models|rna-vmmc|sampling" >&2
         exit 2
         ;;
 esac

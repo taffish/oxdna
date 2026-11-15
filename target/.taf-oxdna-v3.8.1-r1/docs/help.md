@@ -1,4 +1,4 @@
-oxdna 3.8.0-r1
+oxdna 3.8.1-r1
 
 Usage:
   taf-oxdna oxDNA input
@@ -20,6 +20,12 @@ Python and analysis:
   taf-oxdna oat mean -h
   Use "oat <analysis> -h" for each analysis; they are not separate executables.
   Static plots are written to files. Open them with your normal image viewer.
+
+Prepare a sampling folder from an existing metadynamics run:
+  From the run folder containing run-meta_0, choose a NEW output folder:
+  taf-oxdna python /opt/oxdna/source/examples/METADYNAMICS/prepare_sampling.py sampling --config metad_PID.toml
+  By default the script rescales the bias using dT. Add --raw_bias to keep the
+  original grid. Avoid --force: upstream replaces the whole output folder.
 
 Generation and compression:
   taf-oxdna oxdna-generate-sa 30 sequences.txt
@@ -45,7 +51,7 @@ Paths and shared inputs:
   For one argument containing spaces, preserve literal shell quoting through
   the wrapper, e.g. taf-oxdna oxDNA "'input with spaces'".
   Shared inputs outside the project can be mounted read-only at /reference:
-  TAFFISH_DOCKER_RUN_ARGS="-v /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
+  TAFFISH_CONTAINER_BACKEND=docker TAFFISH_DOCKER_RUN_ARGS="-v /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
   TAFFISH_CONTAINER_BACKEND=podman TAFFISH_PODMAN_RUN_ARGS="-v /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
   TAFFISH_CONTAINER_BACKEND=apptainer TAFFISH_APPTAINER_RUN_ARGS="--bind /srv/oxdna/reference:/reference:ro" taf-oxdna oxDNA input
   Point the input's topology/conf_file/parameter entries at /reference. OAT

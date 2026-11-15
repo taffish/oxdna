@@ -1,0 +1,6 @@
+{
+  "artifact": "taf-oxdna-v3.8.1-r1",
+  "schema": "taffish.build/v1",
+  "source_sha256": "fa40ea29d10363c8586f4b9cad3573f6b6a7e214c4115ecbb4e0391288c23ac6",
+  "wrapper_sha256": "8cd215b00a9ffa217c6c55776dc76540dc06d084823022e6ba953edcb4059523"
+}
